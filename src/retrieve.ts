@@ -1,7 +1,18 @@
 import fs from 'fs';
 import { DocumentRecord, TreeNode } from './types';
 import { removeFields } from './utils';
-import pdfParse from 'pdf-parse';
+import type pdfParse from 'pdf-parse';
+
+// Lazy loader — keeps module evaluation free of require('pdf-parse').
+let _pdfParse: typeof pdfParse | null = null;
+function lazyPdfParse(): typeof pdfParse {
+  if (!_pdfParse) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('pdf-parse');
+    _pdfParse = (mod.default ?? mod) as typeof pdfParse;
+  }
+  return _pdfParse!;
+}
 
 // ── Page parsing ───────────────────────────────────────────────────────────────
 
@@ -39,7 +50,7 @@ async function getPdfPageContent(
   const buffer = fs.readFileSync(doc.path);
   const pageTexts: string[] = [];
 
-  await pdfParse(buffer, {
+  await lazyPdfParse()(buffer, {
     pagerender: (pageData: { getTextContent: () => Promise<{ items: Array<{ str: string; transform: number[] }> }> }) => {
       return pageData.getTextContent().then((c) => {
         let lastY: number | undefined;

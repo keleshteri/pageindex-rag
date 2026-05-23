@@ -1,16 +1,33 @@
 import fs from 'fs';
 import path from 'path';
-import pdfParse from 'pdf-parse';
-import { getEncoding } from 'js-tiktoken';
+import type pdfParse from 'pdf-parse';
+import type { getEncoding } from 'js-tiktoken';
 import { TreeNode, TocEntry } from './types';
 import { llmCompletion } from './llm';
 
 // ── Token counting ─────────────────────────────────────────────────────────────
 
+// Lazy loaders: pdf-parse and js-tiktoken are required on first call, not at
+// module load time. This lets the Obsidian plugin patch Module._resolveFilename
+// in its onload() before the first indexing call triggers these requires.
+let _pdfParse: typeof pdfParse | null = null;
+function lazyPdfParse(): typeof pdfParse {
+  if (!_pdfParse) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('pdf-parse');
+    _pdfParse = (mod.default ?? mod) as typeof pdfParse;
+  }
+  return _pdfParse!;
+}
+
 let _enc: ReturnType<typeof getEncoding> | null = null;
 function enc() {
-  if (!_enc) _enc = getEncoding('cl100k_base');
-  return _enc;
+  if (!_enc) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getEncoding: _getEncoding } = require('js-tiktoken') as typeof import('js-tiktoken');
+    _enc = _getEncoding('cl100k_base');
+  }
+  return _enc!;
 }
 
 export function countTokens(text: string): number {
@@ -69,7 +86,7 @@ export async function getPdfPages(filePath: string): Promise<PageData[]> {
   // We use a custom page render callback to collect per-page text
   const pageTexts: string[] = [];
 
-  await pdfParse(buffer, {
+  await lazyPdfParse()(buffer, {
     pagerender: (pageData: { getTextContent: () => Promise<{ items: Array<{ str: string; transform: number[] }> }> }) => {
       return pageData.getTextContent().then((content) => {
         let lastY: number | undefined;
