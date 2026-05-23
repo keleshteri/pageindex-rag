@@ -1,5 +1,5 @@
 {
-  "name": "pageindex-rag",
+  "name": "@keleshteri/pageindex-rag",
   "version": "1.0.0",
   "description": "Vectorless RAG using LLM-driven hierarchical document indexing — PDF and Markdown/Obsidian vault support",
   "main": "dist/index.js",
@@ -29,6 +29,9 @@
   "homepage": "https://github.com/keleshteri/pageindex-rag#readme",
   "bugs": {
     "url": "https://github.com/keleshteri/pageindex-rag/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT",
   "dependencies": {

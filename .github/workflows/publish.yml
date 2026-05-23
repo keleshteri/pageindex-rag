@@ -1,0 +1,52 @@
+name: Publish to npmjs.com
+
+on:
+  # Trigger when you create a GitHub Release (Releases tab → Draft a new release)
+  release:
+    types: [published]
+
+  # Also allow a manual dry-run from the Actions tab
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — build and check only, do not publish'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # required for OIDC trusted publishing — no npm token needed
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm (OIDC requires npm 10.5+)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Security check
+        run: npm run security
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: npm publish --access public --provenance
+        # --provenance attaches a signed build attestation to the package
+        # (links it to this exact commit + workflow run — visible on npmjs.com)
+        # No NODE_AUTH_TOKEN or secrets needed — OIDC handles authentication

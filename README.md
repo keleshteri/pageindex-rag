@@ -23,7 +23,7 @@ No embeddings. No vector database. The LLM reads the document structure once, bu
 ## Installation
 
 ```bash
-npm install pageindex-rag
+npm install @keleshteri/pageindex-rag
 ```
 
 Requires **Node.js 18+** (uses built-in `fetch`).
@@ -33,7 +33,7 @@ Requires **Node.js 18+** (uses built-in `fetch`).
 ## Quick start
 
 ```typescript
-import { PageIndexClient } from 'pageindex-rag';
+import { PageIndexClient } from '@keleshteri/pageindex-rag';
 
 const client = new PageIndexClient({
   model: 'gpt-4o',           // or 'claude-sonnet-4-6', 'claude-code', 'ollama/llama3'
