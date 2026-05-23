@@ -1,6 +1,6 @@
 {
   "name": "@keleshteri/pageindex-rag",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Vectorless RAG using LLM-driven hierarchical document indexing — PDF and Markdown/Obsidian vault support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
