@@ -1,6 +1,6 @@
 {
   "name": "@keleshteri/pageindex-rag",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Vectorless RAG using LLM-driven hierarchical document indexing — PDF and Markdown/Obsidian vault support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,7 +24,7 @@
   "keywords": ["rag", "llm", "pdf", "markdown", "obsidian", "indexing", "retrieval", "anthropic", "openai", "ollama"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/keleshteri/pageindex-rag.git"
+    "url": "git+https://github.com/keleshteri/pageindex-rag.git"
   },
   "homepage": "https://github.com/keleshteri/pageindex-rag#readme",
   "bugs": {
