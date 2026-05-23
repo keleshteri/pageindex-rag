@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Workspace (indexed document cache)
+workspace/
+
+# CLI output
+results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test / sample documents — never commit PDFs or binary docs
+*.pdf
+*.docx
+*.doc
+
+# Logs
+*.log
+npm-debug.log*

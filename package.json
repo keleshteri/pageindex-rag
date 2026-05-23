@@ -1,0 +1,49 @@
+{
+  "name": "pageindex-rag",
+  "version": "1.0.0",
+  "description": "Vectorless RAG using LLM-driven hierarchical document indexing — PDF and Markdown/Obsidian vault support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "cli": "ts-node src/cli.ts",
+    "test": "echo \"No tests yet\"",
+    "check:deps": "node scripts/check-deps.js",
+    "security": "npm run check:deps"
+  },
+  "keywords": ["rag", "llm", "pdf", "markdown", "obsidian", "indexing", "retrieval", "anthropic", "openai", "ollama"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keleshteri/pageindex-rag.git"
+  },
+  "homepage": "https://github.com/keleshteri/pageindex-rag#readme",
+  "bugs": {
+    "url": "https://github.com/keleshteri/pageindex-rag/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "openai": "^4.104.0",
+    "pdf-parse": "^1.1.1",
+    "dotenv": "^16.5.0",
+    "uuid": "^11.1.0",
+    "js-tiktoken": "^1.0.16"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/pdf-parse": "^1.1.4",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.8.3",
+    "ts-node": "^10.9.2"
+  }
+}
