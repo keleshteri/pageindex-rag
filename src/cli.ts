@@ -6,6 +6,10 @@ import { pageIndex } from './pageIndex';
 import { mdToTree } from './pageIndexMd';
 import { loadConfig, DEFAULT_CONFIG } from './config';
 import { QueryEngine } from './query-engine';
+import { PageIndexClient } from './client';
+
+const QUEUE_FILE = 'queue.json';
+interface IndexQueue { pending: string[]; done: string[] }
 
 const MD_EXTENSIONS = new Set(['.md', '.markdown']);
 const OBSIDIAN_SKIP_DIRS = new Set(['.obsidian', '.trash', 'node_modules']);
@@ -17,16 +21,19 @@ Usage:
   pageindex-rag query "<question>" --vault <dir>
   pageindex-rag query "<question>" --vault <dir> --model <model>
 
-  pageindex-rag --vault <dir>                 Index all Markdown files in a folder
+  pageindex-rag --vault <dir>                 Index all Markdown files in a folder (one shot)
+  pageindex-rag --queue-only --vault <dir>    Build queue file, no LLM calls (run once to set up)
+  pageindex-rag --from-queue --vault <dir>    Process next batch from queue (run each session)
   pageindex-rag --pdf   <file>                Index a PDF
   pageindex-rag --md    <file>                Index a Markdown file
 
 Options:
-  --vault <dir>             Vault directory (default: current directory for query)
+  --vault <dir>             Vault directory
   --model <model>           LLM model (default: ${DEFAULT_CONFIG.model})
-  --no-summary              Skip node summary generation (index only)
-  --add-description         Generate a document description (index only)
-  --add-text                Include raw text in output nodes (index only)
+  --limit <n>               Files per session for --from-queue (default: 10)
+  --no-summary              Skip node summary generation
+  --add-description         Generate a document description
+  --add-text                Include raw text in output nodes
   --output <path>           Output JSON path (single file only)
   --help                    Show this help
 `);
@@ -81,6 +88,102 @@ async function runQuery(args: string[]): Promise<void> {
   console.log('─'.repeat(60));
 }
 
+function readQueue(queuePath: string): IndexQueue {
+  if (!fs.existsSync(queuePath)) return { pending: [], done: [] };
+  try { return JSON.parse(fs.readFileSync(queuePath, 'utf-8')) as IndexQueue; }
+  catch { return { pending: [], done: [] }; }
+}
+
+function writeQueue(queuePath: string, queue: IndexQueue): void {
+  fs.writeFileSync(queuePath, JSON.stringify(queue, null, 2), 'utf-8');
+}
+
+async function buildQueue(vaultDir: string): Promise<void> {
+  const resolvedVault = path.resolve(vaultDir);
+  if (!fs.existsSync(resolvedVault)) {
+    console.error(`Vault not found: ${resolvedVault}`);
+    process.exit(1);
+  }
+
+  const workspace = path.join(resolvedVault, '.pageindex');
+  fs.mkdirSync(workspace, { recursive: true });
+
+  const queuePath = path.join(workspace, QUEUE_FILE);
+  const metaPath  = path.join(workspace, '_meta.json');
+
+  // Already-indexed files (from PageIndexClient workspace)
+  const alreadyDone = new Set<string>();
+  if (fs.existsSync(metaPath)) {
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')) as Record<string, { path: string }>;
+    for (const doc of Object.values(meta)) {
+      alreadyDone.add(path.relative(resolvedVault, doc.path));
+    }
+  }
+
+  // Carry over any existing queue done list
+  const existing = readQueue(queuePath);
+  for (const f of existing.done) alreadyDone.add(f);
+
+  const allFiles = collectMdFiles(resolvedVault).map(f => path.relative(resolvedVault, f));
+  const pending  = allFiles.filter(f => !alreadyDone.has(f));
+
+  const queue: IndexQueue = { pending, done: [...alreadyDone] };
+  writeQueue(queuePath, queue);
+
+  console.log(`\nQueue built in: ${queuePath}`);
+  console.log(`  ${pending.length} files to index`);
+  console.log(`  ${alreadyDone.size} already done`);
+  if (pending.length > 0) {
+    console.log(`\nNext step:`);
+    console.log(`  pageindex-rag --from-queue --vault ${vaultDir} --model claude-code`);
+  } else {
+    console.log(`\nVault fully indexed!`);
+  }
+}
+
+async function processQueue(vaultDir: string, model: string, limit: number): Promise<void> {
+  const resolvedVault = path.resolve(vaultDir);
+  const workspace  = path.join(resolvedVault, '.pageindex');
+  const queuePath  = path.join(workspace, QUEUE_FILE);
+
+  if (!fs.existsSync(queuePath)) {
+    console.log('No queue found. Run first: pageindex-rag --queue-only --vault ' + vaultDir);
+    process.exit(1);
+  }
+
+  const queue = readQueue(queuePath);
+
+  if (queue.pending.length === 0) {
+    console.log('Queue is empty — vault fully indexed!');
+    return;
+  }
+
+  const batch = queue.pending.slice(0, limit);
+  const total = queue.pending.length;
+  console.log(`\nProcessing ${batch.length} of ${total} pending files (model: ${model})...\n`);
+
+  const client = new PageIndexClient({ model, workspace });
+
+  for (let i = 0; i < batch.length; i++) {
+    const rel      = batch[i];
+    const fullPath = path.join(resolvedVault, rel);
+    process.stdout.write(`[${i + 1}/${batch.length}] ${rel} ... `);
+    try {
+      await client.index(fullPath, 'md');
+      queue.pending = queue.pending.filter(f => f !== rel);
+      queue.done.push(rel);
+      writeQueue(queuePath, queue);
+      console.log('done');
+    } catch (err) {
+      console.log(`FAILED: ${(err as Error).message}`);
+    }
+  }
+
+  const remaining  = queue.pending.length;
+  const doneCount  = total - remaining;
+  console.log(`\n${doneCount} indexed this session. ${remaining > 0 ? `${remaining} remaining — run again next session.` : 'Vault fully indexed!'}`)
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
@@ -91,6 +194,24 @@ async function main(): Promise<void> {
 
   if (args[0] === 'query') {
     await runQuery(args);
+    return;
+  }
+
+  if (args.includes('--queue-only')) {
+    const vaultIdx = args.indexOf('--vault');
+    const vaultDir = vaultIdx !== -1 ? args[vaultIdx + 1] : process.cwd();
+    await buildQueue(vaultDir);
+    return;
+  }
+
+  if (args.includes('--from-queue')) {
+    const vaultIdx = args.indexOf('--vault');
+    const modelIdx = args.indexOf('--model');
+    const limitIdx = args.indexOf('--limit');
+    const vaultDir = vaultIdx !== -1 ? args[vaultIdx + 1] : process.cwd();
+    const model    = modelIdx !== -1 ? args[modelIdx + 1] : loadConfig().model;
+    const limit    = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 10;
+    await processQueue(vaultDir, model, limit);
     return;
   }
 
