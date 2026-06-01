@@ -203,13 +203,29 @@ export class PageIndexClient {
     return results;
   }
 
+  // ── Path helpers (relative ↔ absolute for portability across machines) ─────────
+
+  private vaultRoot(): string {
+    return path.dirname(this.workspace!);
+  }
+
+  private toRelative(absPath: string): string {
+    return path.relative(this.vaultRoot(), absPath);
+  }
+
+  private toAbsolute(storedPath: string): string {
+    // Legacy entries stored absolute paths — keep them working
+    if (path.isAbsolute(storedPath)) return storedPath;
+    return path.resolve(this.vaultRoot(), storedPath);
+  }
+
   // ── Workspace persistence ────────────────────────────────────────────────────
 
   private saveDoc(docId: string): void {
     const doc = this.documents.get(docId);
     if (!doc || !this.workspace) return;
 
-    const toSave = { ...doc };
+    const toSave = { ...doc, path: this.toRelative(doc.path) };
     if (toSave.type === 'pdf') {
       toSave.structure = removeFields(toSave.structure ?? [], ['text']) as typeof toSave.structure;
     }
@@ -229,7 +245,7 @@ export class PageIndexClient {
       type: doc.type,
       doc_name: doc.doc_name,
       doc_description: doc.doc_description,
-      path: doc.path,
+      path: this.toRelative(doc.path),
       page_count: doc.page_count,
       line_count: doc.line_count,
     };
@@ -257,7 +273,7 @@ export class PageIndexClient {
     if (!meta) return;
 
     for (const [docId, entry] of Object.entries(meta)) {
-      this.documents.set(docId, { ...entry, id: docId });
+      this.documents.set(docId, { ...entry, id: docId, path: this.toAbsolute(entry.path) });
     }
 
     console.log(`[PageIndexClient] Loaded ${this.documents.size} document(s) from workspace.`);
@@ -274,6 +290,8 @@ export class PageIndexClient {
       const full = JSON.parse(fs.readFileSync(docPath, 'utf-8')) as DocumentRecord;
       doc.structure = full.structure ?? [];
       if (full.pages) doc.pages = full.pages;
+      // Resolve path in case it was stored relative
+      if (full.path) doc.path = this.toAbsolute(full.path);
     } catch {
       console.warn(`[PageIndexClient] Failed to load document ${docId} from disk.`);
     }
