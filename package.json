@@ -1,9 +1,12 @@
 {
   "name": "@keleshteri/pageindex-rag",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Vectorless RAG using LLM-driven hierarchical document indexing — PDF and Markdown/Obsidian vault support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "pageindex-rag": "dist/cli.js"
+  },
   "files": [
     "dist",
     "README.md",
@@ -17,6 +20,7 @@
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
     "cli": "ts-node src/cli.ts",
+    "query": "node dist/cli.js query",
     "test": "echo \"No tests yet\"",
     "check:deps": "node scripts/check-deps.js",
     "security": "npm run check:deps"

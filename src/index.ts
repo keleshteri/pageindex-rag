@@ -1,5 +1,7 @@
 export { PageIndexClient } from './client';
 export type { PageIndexClientOptions } from './client';
+export { QueryEngine } from './query-engine';
+export type { QueryEngineOptions, QueryResult } from './query-engine';
 export { pageIndex } from './pageIndex';
 export type { PageIndexOptions } from './pageIndex';
 export { mdToTree } from './pageIndexMd';
